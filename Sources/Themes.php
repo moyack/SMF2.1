@@ -1679,20 +1679,6 @@ function EditTheme()
 
 			$_POST['entire_file'] = rtrim(strtr($_POST['entire_file'], array("\r" => '', '   ' => "\t")));
 
-			// Check for a parse error!
-			if (substr($_REQUEST['filename'], -13) == '.template.php' && is_writable($currentTheme['theme_dir']) && ini_get('display_errors'))
-			{
-				$fp = fopen($currentTheme['theme_dir'] . '/tmp_' . session_id() . '.php', 'w');
-				fwrite($fp, $_POST['entire_file']);
-				fclose($fp);
-
-				$error = @file_get_contents($currentTheme['theme_url'] . '/tmp_' . session_id() . '.php');
-				if (preg_match('~ <b>(\d+)</b><br( /)?' . '>$~i', $error) != 0)
-					$error_file = $currentTheme['theme_dir'] . '/tmp_' . session_id() . '.php';
-				else
-					unlink($currentTheme['theme_dir'] . '/tmp_' . session_id() . '.php');
-			}
-
 			if (!isset($error_file))
 			{
 				$fp = fopen($currentTheme['theme_dir'] . '/' . $_REQUEST['filename'], 'w');
@@ -1731,56 +1717,14 @@ function EditTheme()
 		}
 	}
 
+    loadJavaScriptFile('ace/ace.js');
 	$context['allow_save'] = is_writable($currentTheme['theme_dir'] . '/' . $_REQUEST['filename']);
 	$context['allow_save_filename'] = strtr($currentTheme['theme_dir'] . '/' . $_REQUEST['filename'], array($boarddir => '...'));
 	$context['edit_filename'] = $smcFunc['htmlspecialchars']($_REQUEST['filename']);
-
-	if (substr($_REQUEST['filename'], -4) == '.css')
-	{
-		$context['sub_template'] = 'edit_style';
-
-		$context['entire_file'] = $smcFunc['htmlspecialchars'](strtr(file_get_contents($currentTheme['theme_dir'] . '/' . $_REQUEST['filename']), array("\t" => '   ')));
-	}
-	elseif (substr($_REQUEST['filename'], -13) == '.template.php')
-	{
-		$context['sub_template'] = 'edit_template';
-
-		if (!isset($error_file))
-			$file_data = file($currentTheme['theme_dir'] . '/' . $_REQUEST['filename']);
-		else
-		{
-			if (preg_match('~(<b>.+?</b>:.+?<b>).+?(</b>.+?<b>\d+</b>)<br( /)?' . '>$~i', $error, $match) != 0)
-				$context['parse_error'] = $match[1] . $_REQUEST['filename'] . $match[2];
-			$file_data = file($error_file);
-			unlink($error_file);
-		}
-
-		$j = 0;
-		$context['file_parts'] = array(array('lines' => 0, 'line' => 1, 'data' => ''));
-		for ($i = 0, $n = count($file_data); $i < $n; $i++)
-		{
-			if (isset($file_data[$i + 1]) && substr($file_data[$i + 1], 0, 9) == 'function ')
-			{
-				// Try to format the functions a little nicer...
-				$context['file_parts'][$j]['data'] = trim($context['file_parts'][$j]['data']) . "\n";
-
-				if (empty($context['file_parts'][$j]['lines']))
-					unset($context['file_parts'][$j]);
-				$context['file_parts'][++$j] = array('lines' => 0, 'line' => $i + 1, 'data' => '');
-			}
-
-			$context['file_parts'][$j]['lines']++;
-			$context['file_parts'][$j]['data'] .= $smcFunc['htmlspecialchars'](strtr($file_data[$i], array("\t" => '   ')));
-		}
-
-		$context['entire_file'] = $smcFunc['htmlspecialchars'](strtr(implode('', $file_data), array("\t" => '   ')));
-	}
-	else
-	{
-		$context['sub_template'] = 'edit_file';
-
-		$context['entire_file'] = $smcFunc['htmlspecialchars'](strtr(file_get_contents($currentTheme['theme_dir'] . '/' . $_REQUEST['filename']), array("\t" => '   ')));
-	}
+	$context['fileinfo'] = pathinfo($_REQUEST['filename']); // added to handle automatically the type of language
+	// Simplifying the process into a total editing file...
+	$context['sub_template'] = 'edit_file';
+    $context['entire_file'] = $smcFunc['htmlspecialchars'](strtr(file_get_contents($currentTheme['theme_dir'] . '/' . $_REQUEST['filename']), array("\t" => '   ')));
 
 	// Create a special token to allow editing of multiple files.
 	createToken('admin-te-' . md5($_GET['th'] . '-' . $_REQUEST['filename']));
